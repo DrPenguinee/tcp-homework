@@ -32,11 +32,7 @@ class EchoClient(Base):
         for i in range(self.iterations):
             print("--- %s seconds ---" % (time.time() - start_time))
             print("RUN NEW CLIENT ITERATION: " + str(i))
-            # msg = os.urandom(self.msg_size * 2)
-            # msg = msg.strip()[:self.msg_size]
-            characters = string.ascii_letters + string.digits
-            gen_string = ''.join(random.choice(characters) for _ in range(self.msg_size))
-            msg = gen_string.encode()
+            msg = os.urandom(self.msg_size)
 
             print("CLIENT sending")
             n = self.socket.send(msg, "client " + str(i))
