@@ -3,7 +3,7 @@ import struct
 
 class TCP_packet:
     HEADER_SIZE = 15
-    MSS = 10
+    MSS = 50
     # maximum segment size; the max of the data HEADER_FORMAT explanation:
     # seq_num == 4 bytes, ack_num == 4 bytes,
     # header_len == 2 bytes, data_size == 2 bytes,
@@ -26,10 +26,13 @@ class TCP_packet:
         return self.ACK == 1 and self.SYN == 1 and self.FIN == 0
 
     def is_ack(self) -> bool:
-        return self.ACK == 1
+        return self.ACK == 1 and self.SYN == 0 and self.FIN == 0
 
     def is_fin(self) -> bool:
         return self.ACK == 0 and self.SYN == 0 and self.FIN == 1
+
+    def is_finack(self) -> bool:
+        return self.ACK == 1 and self.SYN == 0 and self.FIN == 1
 
     def pack_segment(self) -> bytes:
         data_size = len(self.data)

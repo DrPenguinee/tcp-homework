@@ -20,12 +20,16 @@ class UDPBasedProtocol:
         msg, addr = self.udp_socket.recvfrom(n)
         return msg
 
+    def close(self):
+        self.udp_socket.close()
+
 
 class MyTCPProtocol(UDPBasedProtocol):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.seq_num = random.randint(1, 100)
         self.timeout = Timeout(ACK_TIMEOUT)
+        self.last_ack = 0
 
     def send(self, data: bytes, id: str):
         # print(id + " START SENDING")
@@ -40,13 +44,14 @@ class MyTCPProtocol(UDPBasedProtocol):
         while True:
             try:
                 raw_synack = self.recvfrom(TCP_packet.PACKET_SIZE)
+                # print("Got synack")
                 synack = TCP_packet.unpack_segment(raw_synack)
                 if synack.is_synack() and synack.ack_num == syn.seq_num + 1:
                     break
                 else:
                     self.sendto(raw_syn)
             except socket.timeout:
-                print("Timeout")
+                # print("Timeout")
                 self.udp_socket.settimeout(self.timeout.inc())
                 self.sendto(raw_syn)
 
@@ -65,8 +70,10 @@ class MyTCPProtocol(UDPBasedProtocol):
                     raw_ack = self.recvfrom(TCP_packet.PACKET_SIZE)
                     ack = TCP_packet.unpack_segment(raw_ack)
                 except socket.timeout:
+                    self.udp_socket.settimeout(self.timeout.inc())
                     continue
 
+                self.udp_socket.settimeout(self.timeout.reset())
                 if ack.is_ack() and ack.ack_num == msg.seq_num + 1:
                     self.seq_num += len(chunk)
                     break
@@ -76,11 +83,11 @@ class MyTCPProtocol(UDPBasedProtocol):
         self.sendto(raw_fin)
         while True:
             try:
-                raw_ack = self.recvfrom(TCP_packet.PACKET_SIZE)
-                ack = TCP_packet.unpack_segment(raw_ack)
-                if ack.ack_num == fin.seq_num + 1 and fin.is_fin():
+                raw_finack = self.recvfrom(TCP_packet.PACKET_SIZE)
+                finack = TCP_packet.unpack_segment(raw_finack)
+                if finack.ack_num == fin.seq_num + 1 and finack.is_finack():
                     break
-                if ack.is_syn():
+                if finack.is_syn() and finack.seq_num > ack.seq_num + 1:
                     break
             except socket.timeout:
                 self.sendto(raw_fin)
@@ -106,11 +113,10 @@ class MyTCPProtocol(UDPBasedProtocol):
         while True:
             raw_msg = self.recvfrom(TCP_packet.PACKET_SIZE)
             msg = TCP_packet.unpack_segment(raw_msg)
-            print(msg.is_syn())
-            if msg.is_syn():
-                self.sendto(raw_synack)
-            else:
+            if msg.seq_num >= exp_seq_num:
                 break
+            elif msg.is_syn() and msg.seq_num == syn.seq_num:
+                self.sendto(raw_synack)
 
         chunks = {}
         while True:
@@ -124,6 +130,10 @@ class MyTCPProtocol(UDPBasedProtocol):
                     ack = TCP_packet(self.seq_num, msg.seq_num + 1, 1, 0, 0, msg.data)
                     raw_ack = ack.pack_segment()
                     self.sendto(raw_ack)
+                if msg.is_syn():
+                    synack = TCP_packet(self.seq_num, msg.seq_num + 1, 1, 1, 0, b'')
+                    raw_synack = synack.pack_segment()
+                    self.sendto(raw_synack)
 
             if packet_valid:
                 if msg.is_fin():
@@ -142,7 +152,7 @@ class MyTCPProtocol(UDPBasedProtocol):
         raw_ack = ack.pack_segment()
         self.sendto(raw_ack)
 
-        self.udp_socket.settimeout(FIN_TIMEOUT)
+        self.udp_socket.settimeout(self.timeout.maximum())
         while True:
             try:
                 raw_fin = self.recvfrom(TCP_packet.PACKET_SIZE)
