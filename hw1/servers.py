@@ -3,7 +3,7 @@ import random
 import string
 import time
 
-from protocol import MyTCPProtocol
+from protocol_v1 import MyTCPProtocol
 
 
 class Base:
