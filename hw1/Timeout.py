@@ -3,8 +3,8 @@ import enum
 
 class TimeoutState(enum.Enum):
     default = 1
-    increased = 4
-    maximum = 20
+    increased = 1
+    maximum = 1
 
 
 class Timeout:

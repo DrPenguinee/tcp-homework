@@ -3,7 +3,7 @@ import struct
 
 class TCP_packet:
     HEADER_SIZE = 15
-    MSS = 50
+    MSS = 5000
     # maximum segment size; the max of the data HEADER_FORMAT explanation:
     # seq_num == 4 bytes, ack_num == 4 bytes,
     # header_len == 2 bytes, data_size == 2 bytes,
